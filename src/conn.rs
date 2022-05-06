@@ -5,8 +5,13 @@ use midly::num::u7;
 use std::io::{stdin, stdout, Write};
 use std::error::Error;
 
-const NOTE_ON_MSG: u8 = 0x90;
-const NOTE_OFF_MSG: u8 = 0x80;
+// https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
+// https://www.midi.org/specifications-old/item/table-2-expanded-messages-list-status-bytes
+const CHAN1_NOTE_ON_MSG: u8 = 144;
+const CHAN1_NOTE_OFF_MSG: u8 = 128;
+const CHAN1_CONTROL_MODE_CHANGE_MSG: u8 = 176;
+const ALL_NOTES_OFF_MSG: u8 = 123;
+const ALL_SOUND_OFF_MSG: u8 = 120;
 
 // Forked from https://github.com/Boddlnagg/midir/blob/master/examples/test_play.rs
 pub fn connect() -> Result<MidiOutputConnection, Box<dyn Error>> {
@@ -39,9 +44,14 @@ pub fn connect() -> Result<MidiOutputConnection, Box<dyn Error>> {
 }
 
 pub fn note_on(conn: &mut MidiOutputConnection, key: u7, vel: u7) {
-    let _ = conn.send(&[NOTE_ON_MSG, key.as_int(), vel.as_int()]);
+    let _ = conn.send(&[CHAN1_NOTE_ON_MSG, key.as_int(), vel.as_int()]);
 }
 
 pub fn note_off(conn: &mut MidiOutputConnection, key: u7, vel: u7) {
-    let _ = conn.send(&[NOTE_OFF_MSG, key.as_int(), vel.as_int()]);
+    let _ = conn.send(&[CHAN1_NOTE_OFF_MSG, key.as_int(), vel.as_int()]);
+}
+
+pub fn silence(conn: &mut MidiOutputConnection) {
+    let _ = conn.send(&[CHAN1_CONTROL_MODE_CHANGE_MSG, ALL_NOTES_OFF_MSG, 0]);
+    let _ = conn.send(&[CHAN1_CONTROL_MODE_CHANGE_MSG, ALL_SOUND_OFF_MSG, 0]);
 }

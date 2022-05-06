@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 midir = "0.7.0"
 midly = "0.5.2"
+crossterm = "0.23.2"

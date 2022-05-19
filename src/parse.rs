@@ -1,6 +1,8 @@
 use midly::{
-    Format, Smf, Track, MidiMessage, TrackEvent, TrackEventKind, TrackEventKind::Meta, TrackEventKind::Midi, MetaMessage::Tempo, 
+    Format, Smf, Track, MidiMessage, MetaMessage, TrackEvent, TrackEventKind, TrackEventKind::Meta, TrackEventKind::Midi, MetaMessage::Tempo, 
 };
+
+use std::collections::BTreeMap;
 
 mod safe_timing;
 use safe_timing::SafeTiming;
@@ -35,7 +37,7 @@ pub fn parse_to_indexed_timed_messages(bytes: &[u8]) -> Vec<(usize,u32,MidiMessa
     let mut ticks = 0;
     let mut time = 0;
     indexed_ticked_events.into_iter().filter_map(|(id, new_ticks, kind)| {
-        let delta = new_ticks.checked_sub(ticks).unwrap_or(0);
+        let delta = new_ticks.saturating_sub(ticks);
         time += delta*timing.microsecs_per_tick(); // Delta answers "how many ticks after the previous event it should this fire?"
         ticks = new_ticks;
         match kind {
@@ -50,4 +52,22 @@ pub fn parse_to_indexed_timed_messages(bytes: &[u8]) -> Vec<(usize,u32,MidiMessa
             _ => None,
         }
     }).collect()
+}
+
+pub fn track_names(bytes: &[u8]) -> BTreeMap<usize, String> {
+    let Smf{header, tracks} = midly::Smf::parse(bytes).expect("Error parsing MIDI bytes");
+    if header.format != Format::Parallel { // TODO
+        panic!("Error: Expected parallel track");
+    }
+
+    let mut names: BTreeMap<usize, String> = BTreeMap::new();
+    for (id, track) in tracks.into_iter().enumerate() {
+        names.insert(id, String::from("N/A"));
+        for track_event in track {
+            if let Meta(MetaMessage::TrackName(track_name_bytes)) = track_event.kind {
+                *names.get_mut(&id).unwrap() = String::from_utf8_lossy(track_name_bytes).into_owned();
+            }
+        }
+    }
+    names
 }

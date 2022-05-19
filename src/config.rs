@@ -1,6 +1,6 @@
 pub struct Config {
-    gain: f64,
-    muted: bool,
+    pub gain: f64,
+    pub muted: bool,
     // pitch: ,
     // speed: ,
     // solo: bool, // TODO

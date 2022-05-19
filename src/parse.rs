@@ -1,5 +1,5 @@
 use midly::{
-    Format, Smf, Track, TrackEvent, TrackEventKind, TrackEventKind::Meta, MetaMessage::Tempo, 
+    Format, Smf, Track, MidiMessage, TrackEvent, TrackEventKind, TrackEventKind::Meta, TrackEventKind::Midi, MetaMessage::Tempo, 
 };
 
 mod safe_timing;
@@ -14,7 +14,7 @@ fn ticked_events(track: Track) -> Vec<(u32, TrackEventKind)> {
     }).collect()
 }
 
-pub fn parse_to_indexed_timed_events(bytes: &[u8]) -> Vec<(usize,u32,TrackEventKind)> {
+pub fn parse_to_indexed_timed_messages(bytes: &[u8]) -> Vec<(usize,u32,MidiMessage)> {
     let Smf{header, tracks} = midly::Smf::parse(bytes).expect("Error parsing MIDI bytes");
     if header.format != Format::Parallel { // TODO
         panic!("Error: Expected parallel track");
@@ -34,14 +34,20 @@ pub fn parse_to_indexed_timed_events(bytes: &[u8]) -> Vec<(usize,u32,TrackEventK
     let mut timing = SafeTiming::from_header(&header); 
     let mut ticks = 0;
     let mut time = 0;
-    indexed_ticked_events.into_iter().map(|(id, new_ticks, kind)| {
+    indexed_ticked_events.into_iter().filter_map(|(id, new_ticks, kind)| {
         let delta = new_ticks.checked_sub(ticks).unwrap_or(0);
         time += delta*timing.microsecs_per_tick(); // Delta answers "how many ticks after the previous event it should this fire?"
         ticks = new_ticks;
-        if let Meta(Tempo(microsecs_per_beat)) = kind { 
-            // println!("Timing: {:?}, microsecs per tick {}", timing, timing.microsecs_per_tick());
-            timing.set_microsecs_per_beat(microsecs_per_beat);
+        match kind {
+            Midi{channel: _, message} => {
+                Some((id,time,message))
+            },
+            Meta(Tempo(microsecs_per_beat)) => {
+                // println!("Timing: {:?}, microsecs per tick {}", timing, timing.microsecs_per_tick());
+                timing.set_microsecs_per_beat(microsecs_per_beat);
+                None
+            },
+            _ => None,
         }
-        (id, time, kind)
     }).collect()
 }

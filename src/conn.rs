@@ -1,16 +1,18 @@
 use midir::{MidiOutput, MidiOutputPort, MidiOutputConnection};
 
-use midly::num::u7;
-
 use std::io::{stdin, stdout, Write};
 use std::error::Error;
 
 // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
 // https://www.midi.org/specifications-old/item/table-2-expanded-messages-list-status-bytes
-const NOTE_ON_CHAN_BASE: u8 = 144;
 const NOTE_OFF_CHAN_BASE: u8 = 128;
+const NOTE_ON_CHAN_BASE: u8 = 144;
+const AFTERTOUCH_CHAN_BASE: u8 = 160;
 const CONTROL_MODE_CHANGE_CHAN_BASE: u8 = 176;
 const PROGRAM_CHANGE_CHAN_BASE: u8 = 192;
+const CHANNEL_AFTERTOUCH_CHAN_BASE: u8 = 208;
+const PITCH_BEND_CHAN_BASE: u8 = 224;
+
 const ALL_SOUND_OFF_MSG: u8 = 120;
 const PAN_MSG: u8 = 10;
 const VOLUME_MSG: u8 = 7;
@@ -45,16 +47,36 @@ pub fn connect() -> Result<MidiOutputConnection, Box<dyn Error>> {
     Ok(midi_out.connect(out_port, "midir-test")?)
 }
 
-pub fn note_on(conn: &mut MidiOutputConnection, chan: u8, key: u7, vel: u7) {
-    let _ = conn.send(&[NOTE_ON_CHAN_BASE+chan, key.as_int(), vel.as_int()]);
+pub fn note_off(conn: &mut MidiOutputConnection, chan: u8, key: u8, vel: u8) {
+    let _ = conn.send(&[NOTE_OFF_CHAN_BASE+chan, key, vel]);
 }
 
-pub fn note_off(conn: &mut MidiOutputConnection, chan: u8, key: u7, vel: u7) {
-    let _ = conn.send(&[NOTE_OFF_CHAN_BASE+chan, key.as_int(), vel.as_int()]);
+pub fn note_on(conn: &mut MidiOutputConnection, chan: u8, key: u8, vel: u8) {
+    let _ = conn.send(&[NOTE_ON_CHAN_BASE+chan, key, vel]);
+}
+
+pub fn aftertouch(conn: &mut MidiOutputConnection, chan: u8, key: u8, vel: u8) {
+    let _ = conn.send(&[AFTERTOUCH_CHAN_BASE+chan, key, vel]);
+}
+
+pub fn controller(conn: &mut MidiOutputConnection, chan: u8, controller: u8, val: u8) {
+    let _ = conn.send(&[CONTROL_MODE_CHANGE_CHAN_BASE + chan, controller, val]);
+}
+
+pub fn program_change(conn: &mut MidiOutputConnection, chan: u8, val: u8) {
+    let _ = conn.send(&[PROGRAM_CHANGE_CHAN_BASE + chan, val]);
+}
+
+pub fn channel_aftertouch(conn: &mut MidiOutputConnection, chan: u8, vel: u8) {
+    let _ = conn.send(&[CHANNEL_AFTERTOUCH_CHAN_BASE + chan, vel]);
+}
+
+pub fn pitch_bend(conn: &mut MidiOutputConnection, chan: u8, vel: u16) {
+    let _ = conn.send(&[PITCH_BEND_CHAN_BASE + chan, (vel%16) as u8, (vel/16) as u8]);
 }
 
 pub fn silence(conn: &mut MidiOutputConnection, chan: u8) {
-    let _ = conn.send(&[CONTROL_MODE_CHANGE_CHAN_BASE + chan, ALL_SOUND_OFF_MSG, 0]);
+    controller(conn, chan, ALL_SOUND_OFF_MSG, 0);
 }
 
 pub fn silence_all(conn: &mut MidiOutputConnection) {
@@ -65,17 +87,9 @@ pub fn silence_all(conn: &mut MidiOutputConnection) {
 }
 
 pub fn pan(conn: &mut MidiOutputConnection, chan: u8, val: u8) {
-    let _ = conn.send(&[CONTROL_MODE_CHANGE_CHAN_BASE + chan, PAN_MSG, val]);
+    controller(conn, chan, PAN_MSG, val);
 }
 
 pub fn volume(conn: &mut MidiOutputConnection, chan: u8, val: u8) {
-    let _ = conn.send(&[CONTROL_MODE_CHANGE_CHAN_BASE + chan, VOLUME_MSG, val]);
-}
-
-pub fn program_change(conn: &mut MidiOutputConnection, chan: u8, val: u8) {
-    let _ = conn.send(&[PROGRAM_CHANGE_CHAN_BASE + chan, val]);
-}
-
-pub fn controller(conn: &mut MidiOutputConnection, chan: u8, controller: u8, val: u8) {
-    let _ = conn.send(&[CONTROL_MODE_CHANGE_CHAN_BASE + chan, controller, val]);
+    controller(conn, chan, VOLUME_MSG, val);
 }

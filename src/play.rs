@@ -1,16 +1,33 @@
 use midir::MidiOutputConnection;
 
-use midly::{
-    MidiMessage::{
-        self, NoteOn, NoteOff, ProgramChange, Controller
-    },
+use midly::MidiMessage::{
+    self,
+    NoteOff,
+    NoteOn,
+    Aftertouch,
+    Controller,
+    ProgramChange,
+    ChannelAftertouch,
+    PitchBend,
 };
 
 use std::time::{Duration, Instant};
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 
-use crate::conn::{note_on, note_off, silence, silence_all, pan, volume, program_change, controller};
+use crate::conn::{
+    note_on, 
+    note_off, 
+    silence, 
+    silence_all, 
+    pan, 
+    volume, 
+    program_change, 
+    controller,
+    aftertouch,
+    channel_aftertouch,
+    pitch_bend,
+};
 
 use crate::command::Command::{
     self,
@@ -83,19 +100,27 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
         // Play
         match message {
             NoteOn{key, vel} if !muted_tracks.contains(track_id) => {
-                note_on(conn, *track_id as u8, *key, *vel);
+                note_on(conn, *track_id as u8, key.as_int(), vel.as_int());
             },
             NoteOff{key, vel} => {
-                note_off(conn, *track_id as u8, *key, *vel);
+                note_off(conn, *track_id as u8, key.as_int(), vel.as_int());
+            },
+            Aftertouch{key, vel} => {
+                aftertouch(conn, *track_id as u8, key.as_int(), vel.as_int());
+            },
+            Controller{controller: contr, value} => {
+                controller(conn, *track_id as u8, contr.as_int(), value.as_int());
             },
             ProgramChange{program} => {
                 program_change(conn, *track_id as u8, program.as_int());
             },
-            Controller{controller: contr, value} => {
-                controller(conn, *track_id as u8, contr.as_int(), value.as_int());
-            }
+            ChannelAftertouch{vel} => {
+                channel_aftertouch(conn, *track_id as u8, vel.as_int());
+            },
+            PitchBend{bend} => {
+                pitch_bend(conn, *track_id as u8, bend.0.as_int());
+            },
             _ => {},
-            // other => println!("Other MidiMessage: {:?}", other), 
         }
 
         // Update player state

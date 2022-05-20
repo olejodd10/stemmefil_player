@@ -10,9 +10,9 @@ impl SafeTiming {
     pub fn from_header(header: &Header) -> Self {
         match header.timing {
             Timing::Metrical(ticks_per_beat) => { // "The length of a beat is not standard, so in order to fully describe the length of a MIDI tick the MetaMessage::Tempo event should be present."
-                SafeTiming::Metrical(1000_000, ticks_per_beat.as_int() as u32)
+                SafeTiming::Metrical(1_000_000, ticks_per_beat.as_int() as u32)
             },
-            Timing::Timecode(fps, subframe) => SafeTiming::Explicit(1000_000/(fps.as_int() as u32)/(subframe as u32)),
+            Timing::Timecode(fps, subframe) => SafeTiming::Explicit(1_000_000/(fps.as_int() as u32)/(subframe as u32)),
         }
     }
 

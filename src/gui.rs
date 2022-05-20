@@ -4,7 +4,8 @@ use eframe::egui::CentralPanel;
 use std::sync::mpsc::SyncSender;
 use std::collections::BTreeMap;
 
-use crate::config::Config;
+mod config;
+use config::Config;
 use crate::command::Command;
 
 pub fn run(song_name: String, track_names: BTreeMap<usize, String>, send: SyncSender<Command>) {
@@ -54,13 +55,19 @@ impl eframe::App for StemmefilApp {
             }
 
             for (id, (name, config)) in self.tracks.iter_mut().skip(1) { // Skip dummy track
-                ui.label(name.as_str());
-                if ui.toggle_value(&mut config.muted, "Mute").clicked() {
-                    let _ = self.send.send(Command::Muted(*id, config.muted));
-                }
-                if ui.add(egui::Slider::new(&mut config.gain, 0.0..=1.0).text("Volume")).changed() {
-                    let _ = self.send.send(Command::Gain(*id, config.gain));
-                }
+                let send = &self.send; // "Capture" sender
+                ui.horizontal(|ui| {
+                    ui.label(name.as_str());
+                    if ui.toggle_value(&mut config.muted, "Mute").clicked() {
+                        let _ = send.send(Command::Muted(*id, config.muted));
+                    }
+                    if ui.add(egui::Slider::new(&mut config.volume, 0..=127).text("Volume")).changed() {
+                        let _ = send.send(Command::Volume(*id, config.volume));
+                    }
+                    if ui.add(egui::Slider::new(&mut config.pan, 0..=127).text("Panning")).changed() {
+                        let _ = send.send(Command::Pan(*id, config.pan));
+                    }
+                });
             }
         });
     }

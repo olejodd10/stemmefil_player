@@ -2,6 +2,7 @@ pub enum Command {
     Play,
     Pause,
     Muted(usize, bool),
-    Gain(usize, f64),
+    Volume(usize, u8),
     Jump(f64),
+    Pan(usize, u8),
 }

@@ -2,7 +2,6 @@ mod conn;
 mod parse;
 mod play;
 mod gui;
-mod config;
 mod command;
 
 use std::fs::read;
@@ -13,7 +12,7 @@ const COMMAND_CHANNEL_BOUND: usize = 8;
 
 fn main() {
     let mut conn = conn::connect().unwrap();
-    let bytes = read(Path::new("kunglil.mid")).expect("Error reading MIDI file");
+    let bytes = read(Path::new("bernadino.mid")).expect("Error reading MIDI file");
     let messages = parse::parse_to_indexed_timed_messages(&bytes);
     let trck_names = parse::track_names(&bytes);
     let song_name = trck_names.get(&0).unwrap().to_string();

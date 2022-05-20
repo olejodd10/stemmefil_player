@@ -2,26 +2,24 @@ use midir::MidiOutputConnection;
 
 use midly::{
     MidiMessage::{
-        self, NoteOn, NoteOff
+        self, NoteOn, NoteOff, ProgramChange, Controller
     },
-    num::u7,
 };
 
-use std::thread::sleep;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 
-use crate::conn::{note_on, note_off, silence};
+use crate::conn::{note_on, note_off, silence, silence_all, pan, volume, program_change, controller};
 
-use crate::config::Config;
 use crate::command::Command::{
     self,
     Play,
     Pause,
     Muted,
-    Gain,
+    Volume,
     Jump,
+    Pan,
 };
 
 // Binary search for starting point. Test this.
@@ -39,23 +37,8 @@ fn starting_index(indexed_timed_messages: &[(usize,u32,MidiMessage)], time: u32)
     low
 }
 
-pub fn play_simple(conn: &mut MidiOutputConnection, indexed_timed_messages: &[(usize,u32,MidiMessage)], mut time: u32) {
-    let start = starting_index(indexed_timed_messages, time);
-    for (_track_id, new_time, message) in &indexed_timed_messages[start..] { 
-        let sleep_microseconds = new_time.checked_sub(time).unwrap_or(0);
-        sleep(Duration::from_micros(sleep_microseconds as u64));
-        time = *new_time;
-        match message {
-            NoteOn{key, vel} => note_on(conn, *key, *vel),
-            NoteOff{key, vel} => note_off(conn, *key, *vel),
-            _ => {},
-            // other => println!("Other MidiMessage: {:?}", other), 
-        }
-    }
-}
-
 pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &[(usize,u32,MidiMessage)], recv: Receiver<Command>) {
-    let mut configs: HashMap<usize, Config> = indexed_timed_messages.iter().map(|t| (t.0, Config::default())).collect();
+    let mut muted_tracks = HashSet::new();
     let end_time = indexed_timed_messages.last().unwrap().1;
     let mut time = 0;
     let mut index = 0;
@@ -70,16 +53,28 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
                 match command {
                     Play => paused = false,
                     Pause => {
-                        silence(conn);
+                        silence_all(conn);
                         paused = true;
                     },
-                    Muted(id, muted) => configs.get_mut(&id).unwrap().muted = muted,
-                    Gain(id, gain) => configs.get_mut(&id).unwrap().gain = gain,
+                    Muted(id, muted) => {
+                        if muted {
+                            silence(conn, id as u8);
+                            muted_tracks.insert(id);
+                        } else {
+                            muted_tracks.remove(&id);
+                        }
+                    },
+                    Volume(id, vol_val) => {
+                        volume(conn, id as u8, vol_val);
+                    },
                     Jump(mark) => {
-                        silence(conn);
+                        silence_all(conn);
                         time = (end_time as f64 * mark).round() as u32;
                         index = starting_index(indexed_timed_messages, time);
                         continue 'outer;
+                    },
+                    Pan(id, pan_val) => {
+                        pan(conn, id as u8, pan_val);
                     },
                 }
             }
@@ -89,17 +84,23 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
         if paused {
             continue;
         }
-        time = *new_time;
-        let config = configs.get(track_id).unwrap();
         match message {
-            NoteOn{key, vel} if !config.muted => {
-                let modified_vel = u7::from_int_lossy((vel.as_int() as f64 * config.gain).round() as u8);
-                note_on(conn, *key, modified_vel)
+            NoteOn{key, vel} if !muted_tracks.contains(track_id) => {
+                note_on(conn, *track_id as u8, *key, *vel);
             },
-            NoteOff{key, vel} => note_off(conn, *key, *vel),
+            NoteOff{key, vel} => {
+                note_off(conn, *track_id as u8, *key, *vel);
+            },
+            ProgramChange{program} => {
+                program_change(conn, *track_id as u8, program.as_int());
+            },
+            Controller{controller: contr, value} => {
+                controller(conn, *track_id as u8, contr.as_int(), value.as_int());
+            }
             _ => {},
             // other => println!("Other MidiMessage: {:?}", other), 
         }
+        time = *new_time;
         index = (index + 1) % indexed_timed_messages.len();
     }
 }

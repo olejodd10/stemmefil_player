@@ -1,16 +1,18 @@
 pub struct Config {
-    pub gain: f64,
+    pub volume: u8,
     pub muted: bool,
+    pub pan: u8,
     // pitch: ,
     // speed: ,
-    // solo: bool, // TODO
+    // solo: Option<bool>, // TODO. Radio buttons.
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            gain: 1.0,
+            volume: 63,
             muted: false,
+            pan: 63,
         }
     }
 }

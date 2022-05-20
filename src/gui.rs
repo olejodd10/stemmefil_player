@@ -3,9 +3,12 @@ use eframe::egui::CentralPanel;
 
 use std::sync::mpsc::SyncSender;
 use std::collections::BTreeMap;
+use std::path::Path;
 
 mod config;
 use config::Config;
+mod image;
+use self::image::Image;
 use crate::command::Command;
 
 pub fn run(song_name: String, track_names: BTreeMap<usize, String>, send: SyncSender<Command>) {
@@ -19,20 +22,26 @@ struct StemmefilApp {
     progress: f64,
     paused: bool,
     send: SyncSender<Command>,
+    tss_image: Image,
+    tks_image: Image,
 }
 
 impl StemmefilApp {
-    fn new(_cc: &eframe::CreationContext<'_>, song_name: String, track_names: BTreeMap<usize, String>, send: SyncSender<Command>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>, song_name: String, track_names: BTreeMap<usize, String>, send: SyncSender<Command>) -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
+        let tks_image = Image::new("tks_image", Path::new("figs/tks_mini.jpg"), &cc.egui_ctx, 200, 200);
+        let tss_image = Image::new("tss_image", Path::new("figs/tss_mini.jpg"), &cc.egui_ctx, 200, 200);
         Self {
             song_name,
             tracks: track_names.into_iter().map(|t| (t.0, (t.1, Config::default()))).collect(),
             progress: 0.0,
             paused: false,
             send,
+            tss_image,
+            tks_image,
         }
     }
 }
@@ -69,6 +78,10 @@ impl eframe::App for StemmefilApp {
                     }
                 });
             }
+            ui.horizontal(|ui| {
+                self.tss_image.ui(ui);
+                self.tks_image.ui(ui);
+            });
         });
     }
 }

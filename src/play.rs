@@ -47,8 +47,8 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
         let (track_id, new_time, message) = &indexed_timed_messages[index];
         let sleep_duration = Duration::from_micros(new_time.checked_sub(time).unwrap_or(0) as u64);
         let now = Instant::now();
-        while now.elapsed() < sleep_duration {
-            // Listen for commands
+        // Listen for commands
+        while paused || now.elapsed() < sleep_duration {
             if let Ok(command) = recv.try_recv() {
                 match command {
                     Play => paused = false,
@@ -81,9 +81,6 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
         }
 
         // Play
-        if paused {
-            continue;
-        }
         match message {
             NoteOn{key, vel} if !muted_tracks.contains(track_id) => {
                 note_on(conn, *track_id as u8, *key, *vel);
@@ -100,6 +97,8 @@ pub fn play_real_time(conn: &mut MidiOutputConnection, indexed_timed_messages: &
             _ => {},
             // other => println!("Other MidiMessage: {:?}", other), 
         }
+
+        // Update player state
         time = *new_time;
         index = (index + 1) % indexed_timed_messages.len();
     }
